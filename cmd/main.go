@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/VixsTy/gke-node-scaler/models"
+	function "github.com/VixsTy/gke-node-scaler"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/models"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 		NodeCount:    0,
 		MaxNodeCount: 1,
 	}
-	err := ScalerEvent(ctx, m)
+	err := function.ScalerEvent(ctx, m)
 	if err != nil {
 		panic(err)
 	}

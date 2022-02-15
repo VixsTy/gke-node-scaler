@@ -3,7 +3,7 @@ package scaler
 import (
 	"context"
 
-	"github.com/VixsTy/gke-node-scaler/models"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/models"
 )
 
 type ScalerService interface {

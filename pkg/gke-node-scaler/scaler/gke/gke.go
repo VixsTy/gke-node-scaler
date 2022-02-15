@@ -3,8 +3,8 @@ package gke
 import (
 	"context"
 
-	"github.com/VixsTy/gke-node-scaler/models"
-	"github.com/VixsTy/gke-node-scaler/scaler"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/models"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/scaler"
 	"google.golang.org/api/container/v1"
 )
 
@@ -55,7 +55,14 @@ func (s *GkeScalerService) setAutoscaling(enable bool, maxNodeCount int64) error
 		nodePoolAutoscalingRequest,
 	)
 
-	_, err := call.Do()
+	op, err := call.Do()
+
+	for op.Status != "DONE" {
+		op, err = container.NewProjectsLocationsOperationsService(s.containerService).Get(op.Name).Do()
+		if err != nil {
+			return err
+		}
+	}
 
 	return err
 }

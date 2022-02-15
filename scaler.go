@@ -1,10 +1,10 @@
-package main
+package function
 
 import (
 	"context"
 
-	"github.com/VixsTy/gke-node-scaler/models"
-	"github.com/VixsTy/gke-node-scaler/scaler/gke"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/models"
+	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/scaler/gke"
 )
 
 // ScalerEvent consumes a Pub/Sub message.

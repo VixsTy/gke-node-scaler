@@ -1,6 +1,6 @@
 module github.com/VixsTy/gke-node-scaler
 
-go 1.17
+go 1.16
 
 require (
 	cloud.google.com/go/compute v0.1.0 // indirect
