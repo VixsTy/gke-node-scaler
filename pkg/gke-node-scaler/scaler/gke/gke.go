@@ -2,14 +2,18 @@ package gke
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"time"
 
 	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/models"
 	"github.com/VixsTy/gke-node-scaler/pkg/gke-node-scaler/scaler"
-	"google.golang.org/api/container/v1"
+	container "google.golang.org/api/container/v1beta1"
 )
 
 type GkeScalerService struct {
 	name             string
+	projectID        string
 	containerService *container.Service
 	nodePoolsService *container.ProjectsLocationsClustersNodePoolsService
 }
@@ -25,23 +29,43 @@ func (s *GkeScalerService) newContainerService(ctx context.Context) error {
 	}
 	s.containerService = containerService
 	s.nodePoolsService = container.NewProjectsLocationsClustersNodePoolsService(containerService)
+
 	return nil
 }
 
 func (s *GkeScalerService) buildName(event models.ScalerMessage) {
-	name := "projects/" + event.ProjectId + "/locations/" + event.Zone + "/clusters/" + event.ClusterID + "/nodePools/" + event.NodePoolID
+	name := "projects/" + event.ProjectID + "/locations/" + event.Zone + "/clusters/" + event.ClusterID + "/nodePools/" + event.NodePoolID
 	s.name = name
+	s.projectID = event.ProjectID
+}
+
+func (s *GkeScalerService) waitForOperationEnding(op *container.Operation) (err error) {
+	opFullName := fmt.Sprintf("projects/%s/locations/%s/operations/%s", s.projectID, op.Zone, op.Name)
+	i := 0
+	for i < 10 && op.Status != "DONE" {
+		log.Println("Waiting for operation to complete...", op.Name, s.name)
+		time.Sleep(30 * time.Second)
+		op, err = container.NewProjectsLocationsOperationsService(s.containerService).Get(opFullName).Do()
+		if err != nil {
+			return err
+		}
+		i++
+	}
+	log.Println("Operation complete !", op.Name, s.name)
+	return nil
 }
 
 func (s *GkeScalerService) setAutoscaling(enable bool, maxNodeCount int64) error {
 	var nodePoolAutoscalingRequest *container.SetNodePoolAutoscalingRequest
 	if !enable {
+		log.Println("Disabling autoscaling...", s.name)
 		nodePoolAutoscalingRequest = &container.SetNodePoolAutoscalingRequest{
 			Autoscaling: &container.NodePoolAutoscaling{
 				Enabled: false,
 			},
 		}
 	} else {
+		log.Println("Enabling autoscaling...", maxNodeCount, s.name)
 		nodePoolAutoscalingRequest = &container.SetNodePoolAutoscalingRequest{
 			Autoscaling: &container.NodePoolAutoscaling{
 				Enabled:      true,
@@ -56,18 +80,15 @@ func (s *GkeScalerService) setAutoscaling(enable bool, maxNodeCount int64) error
 	)
 
 	op, err := call.Do()
-
-	for op.Status != "DONE" {
-		op, err = container.NewProjectsLocationsOperationsService(s.containerService).Get(op.Name).Do()
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
-	return err
+	return s.waitForOperationEnding(op)
 }
 
 func (s *GkeScalerService) setNodeSize(nodeCount int64) error {
+	log.Println("Setting node size...", nodeCount, s.name)
 	nodePoolSizeRequest := container.SetNodePoolSizeRequest{
 		Name:      s.name,
 		NodeCount: nodeCount,
@@ -77,12 +98,12 @@ func (s *GkeScalerService) setNodeSize(nodeCount int64) error {
 		&nodePoolSizeRequest,
 	)
 
-	_, err := call.Do()
+	op, err := call.Do()
 	if err != nil {
 		return err
 	}
 
-	return err
+	return s.waitForOperationEnding(op)
 }
 
 func (s *GkeScalerService) ScaleDown(ctx context.Context, event models.ScalerMessage) error {

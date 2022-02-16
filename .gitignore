@@ -1,5 +1,6 @@
 bin/
 test-result
+gcp-sa.json
 
 # Binaries for programs and plugins
 *.exe
